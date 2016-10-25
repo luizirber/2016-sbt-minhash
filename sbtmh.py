@@ -27,7 +27,7 @@ class SigLeaf(Leaf):
         return SigLeaf(info['metadata'], data, name=info['name'])
 
 
-def search_minhashes(node, sig, threshold):
+def search_minhashes(node, sig, threshold, results=None):
     mins = sig.estimator.mh.get_mins()
 
     if isinstance(node, SigLeaf):
@@ -35,12 +35,15 @@ def search_minhashes(node, sig, threshold):
     else:  # Node or Leaf, Nodegraph by minhash comparison
         matches = sum(1 for value in mins if node.data.get(value))
 
+    if results is not None:
+        results[node.name] = matches / len(mins)
+
     if matches / len(mins) >= threshold:
         return 1
     return 0
 
 
-def test_tree():
+def test_tree_save_load():
     factory = GraphFactory(31, 1e5, 4)
     tree = SBT(factory)
     for f in glob("urchin/*.sig"):
@@ -49,8 +52,6 @@ def test_tree():
         leaf = SigLeaf(os.path.basename(f), sig[0])
         tree.add_node(leaf)
         to_search = leaf
-
-    #tree.print()
 
     print('*' * 60)
     print("{}:".format(to_search.metadata))
@@ -69,5 +70,30 @@ def test_tree():
     assert old_result == new_result
 
 
+def test_binary_nary_tree():
+    factory = GraphFactory(31, 1e5, 4)
+    trees = {}
+    trees[2] = SBT(factory)
+    trees[5] = SBT(factory, d=5)
+    trees[10] = SBT(factory, d=10)
+
+    for f in glob("urchin/*.sig"):
+        with open(f, 'r') as data:
+            sig = signature.load_signatures(data)
+        leaf = SigLeaf(os.path.basename(f), sig[0])
+        for tree in trees.values():
+            tree.add_node(leaf)
+        to_search = leaf
+
+    results = {}
+    print('*' * 60)
+    print("{}:".format(to_search.metadata))
+    for d, tree in trees.items():
+        results[d] = [str(s) for s in tree.find(search_minhashes, to_search.data, 0.1)]
+    print(*results[2], sep='\n')
+
+    assert set(results[2]) == set(results[5])
+    assert set(results[5]) == set(results[10])
+
 if __name__ == "__main__":
-    test_tree()
+    test_binary_nary_tree()

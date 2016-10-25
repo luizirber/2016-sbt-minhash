@@ -79,9 +79,10 @@ class GraphFactory(object):
 
 class SBT(object):
 
-    def __init__(self, factory):
+    def __init__(self, factory, d=2):
         self.factory = factory
         self.nodes = [None]
+        self.d = d
 
     def add_node(self, node):
         try:
@@ -90,34 +91,44 @@ class SBT(object):
             # There aren't any empty positions left.
             # Extend array
             current_size = len(self.nodes)
-            self.nodes += [None] * (current_size + 1)
-            pos = current_size
+            # TODO: this is too much, figure out the lower bound
+            self.nodes += [None] * (2 * (current_size + 1) * self.d)
+            pos = self.nodes.index(None)
 
         if pos == 0:  # empty tree
             self.nodes[0] = node
             return
 
+        # Cases:
+        # 1) parent is a Leaf (already covered)
+        # 2) parent is a Node (with empty position available)
+        #    - add Leaf, update parent
+        # 3) parent is a Node (no position available)
+        #    - this is covered by case 1
         p = self.parent(pos)
-        c1, c2 = self.children(p.pos)
         if isinstance(p.node, Leaf):
             # Create a new internal node
             # node and parent are children of new internal node
             n = Node(self.factory, name="internal." + str(p.pos))
             self.nodes[p.pos] = n
 
+            c1, c2, *remainder = self.children(p.pos)
+
             self.nodes[c1.pos] = p.node
             self.nodes[c2.pos] = node
 
             for child in (p.node, node):
                 child.update(n)
+        elif isinstance(p.node, Node):
+            self.nodes[pos] = node
+            node.update(p.node)
 
-            # update all parents!
+        # update all parents!
+        p = self.parent(p.pos)
+        while p:
+            node.update(p.node)
             p = self.parent(p.pos)
-            while p:
-                node.update(p.node)
-                p = self.parent(p.pos)
 
-            return
 
     def find(self, search_fn, *args):
         matches = []
@@ -137,14 +148,15 @@ class SBT(object):
     def parent(self, pos):
         if pos == 0:
             return None
-        p = int(math.floor((pos - 1) / 2))
+        p = int(math.floor((pos - 1) / self.d))
         return NodePos(p, self.nodes[p])
 
     def children(self, pos):
-        c1 = 2 * pos + 1
-        c2 = 2 * (pos + 1)
-        return (NodePos(c1, self.nodes[c1]),
-                NodePos(c2, self.nodes[c2]))
+        return [self.child(pos, c) for c in range(self.d)]
+
+    def child(self, parent, pos):
+        cd = self.d * parent + pos + 1
+        return NodePos(cd, self.nodes[cd])
 
     def save(self, tag):
         dirname = '.sbt.' + tag
@@ -216,7 +228,7 @@ class SBT(object):
         nodesep=0.3;
         ranksep=0.2;
         margin=0.1;
-        node [shape=circle];
+        node [shape=ellipse];
         edge [arrowsize=0.8];
         """)
 
@@ -239,7 +251,7 @@ class SBT(object):
             node_g = self.nodes[node_p]
             if node_p not in visited and node_g is not None:
                 visited.add(node_p)
-                depth = int(math.floor(math.log(node_p + 1, 2)))
+                depth = int(math.floor(math.log(node_p + 1, self.d)))
                 print(" " * 4 * depth, node_g)
                 if isinstance(node_g, Node):
                     stack.extend(c.pos for c in self.children(node_p)
