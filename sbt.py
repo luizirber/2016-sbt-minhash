@@ -111,18 +111,18 @@ class SBT(object):
             for child in (p.node, node):
                 if isinstance(child, SigLeaf):
                     for v in child.data.estimator.mh.get_mins():
-                        n.graph.count(v)
+                        n.data.count(v)
                 else:
-                    n.graph.update(child.graph)
+                    n.data.update(child.data)
 
             # update all parents!
             p = self.parent(p.pos)
             while p:
                 if isinstance(node, SigLeaf):
                     for v in child.data.estimator.mh.get_mins():
-                        p.node.graph.count(v)
+                        p.node.data.count(v)
                 else:
-                    p.node.graph.update(node.graph)
+                    p.node.data.update(node.data)
                 p = self.parent(p.pos)
 
             return
@@ -258,14 +258,14 @@ class Node(object):
 
     def __init__(self, factory, name=None):
         self.factory = factory
-        self.graph = factory.create_nodegraph()
+        self.data = factory.create_nodegraph()
 
         self.name = name
 
     def __str__(self):
         return '*Node:{name} [occupied: {nb}, fpr: {fpr:.2}]'.format(
-                name=self.name, nb=self.graph.n_occupied(),
-                fpr=khmer.calc_expected_collisions(self.graph, True, 1.1))
+                name=self.name, nb=self.data.n_occupied(),
+                fpr=khmer.calc_expected_collisions(self.data, True, 1.1))
 
 
 class Leaf(object):
