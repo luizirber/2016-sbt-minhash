@@ -109,20 +109,12 @@ class SBT(object):
             self.nodes[c2.pos] = node
 
             for child in (p.node, node):
-                if isinstance(child, SigLeaf):
-                    for v in child.data.estimator.mh.get_mins():
-                        n.data.count(v)
-                else:
-                    n.data.update(child.data)
+                child.update(n)
 
             # update all parents!
             p = self.parent(p.pos)
             while p:
-                if isinstance(node, SigLeaf):
-                    for v in child.data.estimator.mh.get_mins():
-                        p.node.data.count(v)
-                else:
-                    p.node.data.update(node.data)
+                node.update(p.node)
                 p = self.parent(p.pos)
 
             return
@@ -174,7 +166,7 @@ class SBT(object):
             if isinstance(node, Leaf):
                 data['metadata'] = node.metadata
 
-            node.graph.save(data['filename'])
+            node.save(data['filename'])
             structure.append(data)
 
         fn = tag + '.sbt.json'
@@ -184,7 +176,10 @@ class SBT(object):
         return fn
 
     @staticmethod
-    def load(sbt_fn):
+    def load(sbt_fn, leaf_loader=None):
+        if leaf_loader is None:
+            leaf_loader = Leaf.load
+
         with open(sbt_fn) as fp:
             nodes = json.load(fp)
 
@@ -202,16 +197,13 @@ class SBT(object):
                 sbt_nodes.append(None)
                 continue
 
-            graph = khmer.load_nodegraph(node['filename'])
-
-            if 'metadata' in node:
-                # only Leaf nodes have metadata
-                l = Leaf(node['metadata'], graph, name=node['name'])
-                sbt_nodes.append(l)
+            if 'internal' in node['filename']:
+                node['factory'] = factory
+                new_node = Node.load(node)
             else:
-                n = Node(factory, name=node['name'])
-                n.graph = graph
-                sbt_nodes.append(n)
+                new_node = leaf_loader(node)
+
+            sbt_nodes.append(new_node)
 
         tree = SBT(factory)
         tree.nodes = sbt_nodes
@@ -259,13 +251,21 @@ class Node(object):
     def __init__(self, factory, name=None):
         self.factory = factory
         self.data = factory.create_nodegraph()
-
         self.name = name
 
     def __str__(self):
         return '*Node:{name} [occupied: {nb}, fpr: {fpr:.2}]'.format(
                 name=self.name, nb=self.data.n_occupied(),
                 fpr=khmer.calc_expected_collisions(self.data, True, 1.1))
+
+    def save(self, filename):
+        self.data.save(filename)
+
+    @staticmethod
+    def load(info):
+        new_node = Node(info['factory'], name=info['name'])
+        new_node.data = khmer.load_nodegraph(info['filename'])
+        return new_node
 
 
 class Leaf(object):
@@ -282,12 +282,16 @@ class Leaf(object):
                 nb=self.data.n_occupied(),
                 fpr=khmer.calc_expected_collisions(self.data, True, 1.1))
 
+    def save(self, filename):
+        self.data.save(filename)
 
-class SigLeaf(Leaf):
-    def __str__(self):
-        return '**Leaf:{name} -> {metadata}'.format(
-                name=self.name, metadata=self.metadata)
+    def update(self, parent):
+        parent.data.update(self.data)
 
+    @staticmethod
+    def load(info):
+        data = khmer.load_nodegraph(info['filename'])
+        return Leaf(info['metadata'], data, name=info['name'])
 
 
 def filter_distance( filter_a, filter_b, n=1000 ) :
