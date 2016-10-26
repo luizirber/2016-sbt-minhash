@@ -65,16 +65,13 @@ from numpy import array
 NodePos = namedtuple("NodePos", ["pos", "node"])
 
 
-class GraphFactory(object):
+def GraphFactory(ksize, starting_size, n_tables):
     "Build new nodegraphs (Bloom filters) of a specific (fixed) size."
 
-    def __init__(self, ksize, starting_size, n_tables):
-        self.ksize = ksize
-        self.starting_size = starting_size
-        self.n_tables = n_tables
+    def create_nodegraph():
+        return khmer.Nodegraph(ksize, starting_size, n_tables)
 
-    def create_nodegraph(self):
-        return khmer.Nodegraph(self.ksize, self.starting_size, self.n_tables)
+    return create_nodegraph
 
 
 class SBT(object):
@@ -261,8 +258,7 @@ class Node(object):
     "Internal node of SBT; has 0, 1, or 2 children."
 
     def __init__(self, factory, name=None):
-        self.factory = factory
-        self.data = factory.create_nodegraph()
+        self.data = factory()
         self.name = name
 
     def __str__(self):
@@ -332,30 +328,30 @@ def test_simple():
     factory = GraphFactory(5, 100, 3)
     root = SBT(factory)
 
-    leaf1 = Leaf("a", factory.create_nodegraph())
-    leaf1.graph.count('AAAAA')
-    leaf1.graph.count('AAAAT')
-    leaf1.graph.count('AAAAC')
+    leaf1 = Leaf("a", factory())
+    leaf1.data.count('AAAAA')
+    leaf1.data.count('AAAAT')
+    leaf1.data.count('AAAAC')
 
-    leaf2 = Leaf("b", factory.create_nodegraph())
-    leaf2.graph.count('AAAAA')
-    leaf2.graph.count('AAAAT')
-    leaf2.graph.count('AAAAG')
+    leaf2 = Leaf("b", factory())
+    leaf2.data.count('AAAAA')
+    leaf2.data.count('AAAAT')
+    leaf2.data.count('AAAAG')
 
-    leaf3 = Leaf("c", factory.create_nodegraph())
-    leaf3.graph.count('AAAAA')
-    leaf3.graph.count('AAAAT')
-    leaf3.graph.count('CAAAA')
+    leaf3 = Leaf("c", factory())
+    leaf3.data.count('AAAAA')
+    leaf3.data.count('AAAAT')
+    leaf3.data.count('CAAAA')
 
-    leaf4 = Leaf("d", factory.create_nodegraph())
-    leaf4.graph.count('AAAAA')
-    leaf4.graph.count('CAAAA')
-    leaf4.graph.count('GAAAA')
+    leaf4 = Leaf("d", factory())
+    leaf4.data.count('AAAAA')
+    leaf4.data.count('CAAAA')
+    leaf4.data.count('GAAAA')
 
-    leaf5 = Leaf("e", factory.create_nodegraph())
-    leaf5.graph.count('AAAAA')
-    leaf5.graph.count('AAAAT')
-    leaf5.graph.count('GAAAA')
+    leaf5 = Leaf("e", factory())
+    leaf5.data.count('AAAAA')
+    leaf5.data.count('AAAAT')
+    leaf5.data.count('GAAAA')
 
     root.add_node(leaf1)
     root.add_node(leaf2)
@@ -364,7 +360,7 @@ def test_simple():
     root.add_node(leaf5)
 
     def search_kmer(obj, seq):
-        return obj.graph.get(seq)
+        return obj.data.get(seq)
 
     leaves = [leaf1, leaf2, leaf3, leaf4, leaf5 ]
     kmers = [ "AAAAA", "AAAAT", "AAAAG", "CAAAA", "GAAAA" ]
@@ -372,7 +368,7 @@ def test_simple():
     def search_kmer_in_list(kmer):
         x = []
         for l in leaves:
-            if l.graph.get(kmer):
+            if l.data.get(kmer):
                 x.append(l)
 
         return set(x)
@@ -392,30 +388,30 @@ def test_longer_search():
     factory = GraphFactory(ksize, 100, 3)
     root = SBT(factory)
 
-    leaf1 = Leaf("a", factory.create_nodegraph())
-    leaf1.graph.count('AAAAA')
-    leaf1.graph.count('AAAAT')
-    leaf1.graph.count('AAAAC')
+    leaf1 = Leaf("a", factory())
+    leaf1.data.count('AAAAA')
+    leaf1.data.count('AAAAT')
+    leaf1.data.count('AAAAC')
 
-    leaf2 = Leaf("b", factory.create_nodegraph())
-    leaf2.graph.count('AAAAA')
-    leaf2.graph.count('AAAAT')
-    leaf2.graph.count('AAAAG')
+    leaf2 = Leaf("b", factory())
+    leaf2.data.count('AAAAA')
+    leaf2.data.count('AAAAT')
+    leaf2.data.count('AAAAG')
 
-    leaf3 = Leaf("c", factory.create_nodegraph())
-    leaf3.graph.count('AAAAA')
-    leaf3.graph.count('AAAAT')
-    leaf3.graph.count('CAAAA')
+    leaf3 = Leaf("c", factory())
+    leaf3.data.count('AAAAA')
+    leaf3.data.count('AAAAT')
+    leaf3.data.count('CAAAA')
 
-    leaf4 = Leaf("d", factory.create_nodegraph())
-    leaf4.graph.count('AAAAA')
-    leaf4.graph.count('CAAAA')
-    leaf4.graph.count('GAAAA')
+    leaf4 = Leaf("d", factory())
+    leaf4.data.count('AAAAA')
+    leaf4.data.count('CAAAA')
+    leaf4.data.count('GAAAA')
 
-    leaf5 = Leaf("e", factory.create_nodegraph())
-    leaf5.graph.count('AAAAA')
-    leaf5.graph.count('AAAAT')
-    leaf5.graph.count('GAAAA')
+    leaf5 = Leaf("e", factory())
+    leaf5.data.count('AAAAA')
+    leaf5.data.count('AAAAT')
+    leaf5.data.count('GAAAA')
 
     root.add_node(leaf1)
     root.add_node(leaf2)
@@ -428,7 +424,7 @@ def test_longer_search():
             yield seq[start:start + k]
 
     def search_transcript(node, seq, threshold):
-        presence = [ node.graph.get(kmer) for kmer in kmers(ksize, seq) ]
+        presence = [ node.data.get(kmer) for kmer in kmers(ksize, seq) ]
         if sum(presence) >= int(threshold * (len(seq) - ksize + 1)):
             return 1
         return 0
