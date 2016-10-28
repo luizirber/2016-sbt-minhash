@@ -95,5 +95,6 @@ def test_binary_nary_tree():
     assert set(results[2]) == set(results[5])
     assert set(results[5]) == set(results[10])
 
+
 if __name__ == "__main__":
     test_binary_nary_tree()

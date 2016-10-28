@@ -49,18 +49,15 @@ then define a search function, ::
 from __future__ import print_function, unicode_literals
 
 from collections import namedtuple
-import hashlib
 import json
 import math
 import os
-import random
-import shutil
-from tempfile import NamedTemporaryFile
+from random import randint
+
+from numpy import array
 
 import khmer
-from khmer import khmer_args
-from random import randint
-from numpy import array
+from khmer import extract_nodegraph_info
 
 
 NodePos = namedtuple("NodePos", ["pos", "node"])
@@ -126,7 +123,6 @@ class SBT(object):
         while p:
             node.update(p.node)
             p = self.parent(p.pos)
-
 
     def find(self, search_fn, *args):
         matches = []
@@ -199,8 +195,8 @@ class SBT(object):
 
         sbt_nodes = []
 
-        ksize, tablesize, ntables, _, _, _ = khmer.extract_nodegraph_info(nodes[0]['filename'])
-        factory = GraphFactory(ksize, tablesize, ntables)
+        k, size, ntables, *_ = extract_nodegraph_info(nodes[0]['filename'])
+        factory = GraphFactory(k, size, ntables)
 
         for node in nodes:
             if node is None:
@@ -253,7 +249,8 @@ class SBT(object):
                 print(" " * 4 * depth, node_g)
                 if isinstance(node_g, Node):
                     stack.extend(c.pos for c in self.children(node_p)
-                                       if c.pos not in visited)
+                                 if c.pos not in visited)
+
 
 class Node(object):
     "Internal node of SBT; has 0, 1, or 2 children."
@@ -286,10 +283,11 @@ class Leaf(object):
         self.data = data
 
     def __str__(self):
-        return '**Leaf:{name} [occupied: {nb}, fpr: {fpr:.2}] -> {metadata}'.format(
-                name=self.name, metadata=self.metadata,
-                nb=self.data.n_occupied(),
-                fpr=khmer.calc_expected_collisions(self.data, True, 1.1))
+        return ('**Leaf:{name} [occupied: {nb}, fpr: {fpr:.2}]'
+                '-> {metadata}'.format(
+                    name=self.name, metadata=self.metadata,
+                    nb=self.data.n_occupied(),
+                    fpr=khmer.calc_expected_collisions(self.data, True, 1.1)))
 
     def save(self, filename):
         self.data.save(filename)
@@ -303,7 +301,7 @@ class Leaf(object):
         return Leaf(info['metadata'], data, name=info['name'])
 
 
-def filter_distance( filter_a, filter_b, n=1000 ) :
+def filter_distance(filter_a, filter_b, n=1000):
     """
     Compute a heuristic distance per bit between two Bloom
     filters.
@@ -315,14 +313,14 @@ def filter_distance( filter_a, filter_b, n=1000 ) :
     A = filter_a.graph.get_raw_tables()
     B = filter_b.graph.get_raw_tables()
     distance = 0
-    for q,p in zip( A, B ) :
-        a = array( q, copy=False )
-        b = array( p, copy=False )
-        for i in map( lambda x : randint( 0, len(a) ), range(n) ) :
-            distance += sum( map( int, [ not bool((a[i]>>j)&1)
-                                           ^ bool((b[i]>>j)&1)
-                                         for j in range(8) ] ) )
-    return distance / ( 8.0 * len(A) * n )
+    for q, p in zip(A, B):
+        a = array(q, copy=False)
+        b = array(p, copy=False)
+        for i in map(lambda x: randint(0, len(a)), range(n)):
+            distance += sum(map(int,
+                            [not bool((a[i] >> j) & 1) ^ bool((b[i] >> j) & 1)
+                             for j in range(8)]))
+    return distance / (8.0 * len(A) * n)
 
 
 def test_simple():
@@ -363,8 +361,8 @@ def test_simple():
     def search_kmer(obj, seq):
         return obj.data.get(seq)
 
-    leaves = [leaf1, leaf2, leaf3, leaf4, leaf5 ]
-    kmers = [ "AAAAA", "AAAAT", "AAAAG", "CAAAA", "GAAAA" ]
+    leaves = [leaf1, leaf2, leaf3, leaf4, leaf5]
+    kmers = ["AAAAA", "AAAAT", "AAAAG", "CAAAA", "GAAAA"]
 
     def search_kmer_in_list(kmer):
         x = []
@@ -378,11 +376,12 @@ def test_simple():
         assert set(root.find(search_kmer, kmer)) == search_kmer_in_list(kmer)
 
     print('-----')
-    print([ x.metadata for x in root.find(search_kmer, "AAAAA") ])
-    print([ x.metadata for x in root.find(search_kmer, "AAAAT") ])
-    print([ x.metadata for x in root.find(search_kmer, "AAAAG") ])
-    print([ x.metadata for x in root.find(search_kmer, "CAAAA") ])
-    print([ x.metadata for x in root.find(search_kmer, "GAAAA") ])
+    print([x.metadata for x in root.find(search_kmer, "AAAAA")])
+    print([x.metadata for x in root.find(search_kmer, "AAAAT")])
+    print([x.metadata for x in root.find(search_kmer, "AAAAG")])
+    print([x.metadata for x in root.find(search_kmer, "CAAAA")])
+    print([x.metadata for x in root.find(search_kmer, "GAAAA")])
+
 
 def test_longer_search():
     ksize = 5
@@ -425,16 +424,30 @@ def test_longer_search():
             yield seq[start:start + k]
 
     def search_transcript(node, seq, threshold):
-        presence = [ node.data.get(kmer) for kmer in kmers(ksize, seq) ]
+        presence = [node.data.get(kmer) for kmer in kmers(ksize, seq)]
         if sum(presence) >= int(threshold * (len(seq) - ksize + 1)):
             return 1
         return 0
 
-    try1 = [ x.metadata for x in root.find(search_transcript, "AAAAT", 1.0) ]
-    assert set(try1) == set([ 'a', 'b', 'c', 'e' ]), try1 # no 'd'
+    try1 = [x.metadata for x in root.find(search_transcript, "AAAAT", 1.0)]
+    assert set(try1) == set(['a', 'b', 'c', 'e']), try1  # no 'd'
 
-    try2 = [ x.metadata for x in root.find(search_transcript, "GAAAAAT", 0.6) ]
-    assert set(try2) == set([ 'a', 'b', 'c', 'd', 'e' ])
+    try2 = [x.metadata for x in root.find(search_transcript, "GAAAAAT", 0.6)]
+    assert set(try2) == set(['a', 'b', 'c', 'd', 'e'])
 
-    try3 = [ x.metadata for x in root.find(search_transcript, "GAAAA", 1.0) ]
-    assert set(try3) == set([ 'd', 'e' ]), try3
+    try3 = [x.metadata for x in root.find(search_transcript, "GAAAA", 1.0)]
+    assert set(try3) == set(['d', 'e']), try3
+
+
+def test_child():
+    tree = SBT(lambda: True)
+    tree.nodes = [True] * 31
+
+    assert tree.children(0) == [NodePos(1, True), NodePos(2, True)]
+    assert tree.children(1) == [NodePos(3, True), NodePos(4, True)]
+
+    tree = SBT(lambda: True, d=5)
+    tree.nodes = [True] * 31
+
+    assert tree.children(0) == [NodePos(c, True) for c in range(1, 6)]
+    assert tree.children(1) == [NodePos(c, True) for c in range(6, 11)]
