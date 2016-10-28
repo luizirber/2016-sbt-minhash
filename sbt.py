@@ -85,9 +85,8 @@ class SBT(object):
         except ValueError:
             # There aren't any empty positions left.
             # Extend array
-            current_size = len(self.nodes)
-            # TODO: this is too much, figure out the lower bound
-            self.nodes += [None] * (2 * (current_size + 1) * self.d)
+            height = math.floor(math.log(len(self.nodes), self.d)) + 1
+            self.nodes += [None] * (self.d ** height)
             pos = self.nodes.index(None)
 
         if pos == 0:  # empty tree
@@ -145,8 +144,8 @@ class SBT(object):
         p = int(math.floor((pos - 1) / self.d))
         return NodePos(p, self.nodes[p])
 
-    def children(self, pos):
-        return [self.child(pos, c) for c in range(self.d)]
+    def children(self, parent):
+        return [self.child(parent, pos) for pos in range(self.d)]
 
     def child(self, parent, pos):
         cd = self.d * parent + pos + 1
