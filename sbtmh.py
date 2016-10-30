@@ -46,7 +46,7 @@ def search_minhashes(node, sig, threshold, results=None):
 def test_tree_save_load():
     factory = GraphFactory(31, 1e5, 4)
     tree = SBT(factory)
-    for f in glob("urchin/*.sig"):
+    for f in glob("urchin/lividus*.sig"):
         with open(f, 'r') as data:
             sig = signature.load_signatures(data)
         leaf = SigLeaf(os.path.basename(f), sig[0])
@@ -68,6 +68,7 @@ def test_tree_save_load():
     print(*new_result, sep='\n')
 
     assert old_result == new_result
+    assert len(old_result) > 0
 
 
 def test_binary_nary_tree():
@@ -77,7 +78,7 @@ def test_binary_nary_tree():
     trees[5] = SBT(factory, d=5)
     trees[10] = SBT(factory, d=10)
 
-    for f in glob("urchin/*.sig"):
+    for f in glob("urchin/lividus*.sig"):
         with open(f, 'r') as data:
             sig = signature.load_signatures(data)
         leaf = SigLeaf(os.path.basename(f), sig[0])
@@ -94,6 +95,7 @@ def test_binary_nary_tree():
 
     assert set(results[2]) == set(results[5])
     assert set(results[5]) == set(results[10])
+    assert len(results) > 0
 
 
 if __name__ == "__main__":
