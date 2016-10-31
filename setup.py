@@ -27,5 +27,5 @@ setup(
     ],
     #packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     py_modules=["sbt", "sbtmh"],
-    install_requires=['khmer', 'sourmash'],
+    install_requires=['khmer', 'sourmash', 'numpy'],
 )
