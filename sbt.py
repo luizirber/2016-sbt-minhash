@@ -48,7 +48,7 @@ then define a search function, ::
 
 from __future__ import print_function, unicode_literals
 
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import json
 import math
 import os
@@ -76,18 +76,11 @@ class SBT(object):
 
     def __init__(self, factory, d=2):
         self.factory = factory
-        self.nodes = [None]
+        self.nodes = defaultdict(lambda: None)
         self.d = d
 
     def add_node(self, node):
-        try:
-            pos = self.nodes.index(None)
-        except ValueError:
-            # There aren't any empty positions left.
-            # Extend array
-            height = math.floor(math.log(len(self.nodes), self.d)) + 1
-            self.nodes += [None] * (self.d ** height)
-            pos = self.nodes.index(None)
+        pos = max(self.nodes or [0])
 
         if pos == 0:  # empty tree
             self.nodes[0] = node
@@ -158,7 +151,7 @@ class SBT(object):
             os.makedirs(dirname)
 
         structure = []
-        for node in self.nodes:
+        for i, node in sorted(self.nodes.items()):
             if node is None:
                 structure.append(None)
                 continue
@@ -225,7 +218,7 @@ class SBT(object):
         edge [arrowsize=0.8];
         """)
 
-        for i, node in enumerate(self.nodes):
+        for i, node in enumerate(sorted(self.nodes)):
             if node is None:
                 continue
 
