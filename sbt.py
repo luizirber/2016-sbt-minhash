@@ -76,11 +76,22 @@ class SBT(object):
 
     def __init__(self, factory, d=2):
         self.factory = factory
-        self.nodes = defaultdict(lambda: None)
+        self.nodes = [None]
         self.d = d
 
+    def new_node_pos(self, node):
+        try:
+            pos = self.nodes.index(None)
+        except ValueError:
+            # There aren't any empty positions left.
+            # Extend array
+            height = math.floor(math.log(len(self.nodes), self.d)) + 1
+            self.nodes += [None] * (self.d ** height)
+            pos = self.nodes.index(None)
+        return pos
+
     def add_node(self, node):
-        pos = max(self.nodes or [0])
+        pos = self.new_node_pos(node)
 
         if pos == 0:  # empty tree
             self.nodes[0] = node
@@ -151,7 +162,7 @@ class SBT(object):
             os.makedirs(dirname)
 
         structure = []
-        for i, node in sorted(self.nodes.items()):
+        for i, node in iter(self):
             if node is None:
                 structure.append(None)
                 continue
@@ -218,7 +229,7 @@ class SBT(object):
         edge [arrowsize=0.8];
         """)
 
-        for i, node in enumerate(sorted(self.nodes)):
+        for i, node in iter(self):
             if node is None:
                 continue
 
@@ -229,6 +240,10 @@ class SBT(object):
                 else:
                     print('"', p.pos, '"', '->', '"', i, '";')
         print("}")
+
+    def __iter__(self):
+        for i, node in enumerate(self.nodes):
+            yield (i, node)
 
     def print(self):
         visited, stack = set(), [0]
@@ -242,6 +257,21 @@ class SBT(object):
                 if isinstance(node_g, Node):
                     stack.extend(c.pos for c in self.children(node_p)
                                  if c.pos not in visited)
+
+
+class DictSBT(SBT):
+
+    def __init__(self, factory, d=2):
+        super().__init__(factory, d)
+        self.nodes = defaultdict(lambda: None)
+
+    def new_node_pos(self, node):
+        pos = max(self.nodes or [0])
+        return pos
+
+    def __iter__(self):
+        for i, node in self.nodes.items():
+            yield (i, node)
 
 
 class Node(object):
