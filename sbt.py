@@ -158,13 +158,16 @@ class SBT(object):
     def save(self, tag):
         dirname = '.sbt.' + tag
 
+        info = {}
+        info['d'] = self.d
+
         if not os.path.exists(dirname):
             os.makedirs(dirname)
 
-        structure = []
+        structure = {}
         for i, node in iter(self):
             if node is None:
-                structure.append(None)
+                structure[i] = None
                 continue
 
             data = {
@@ -176,32 +179,37 @@ class SBT(object):
                 data['metadata'] = node.metadata
 
             node.save(data['filename'])
-            structure.append(data)
+            structure[i] = data
 
         fn = tag + '.sbt.json'
+        info['nodes'] = structure
         with open(fn, 'w') as fp:
-            json.dump(structure, fp)
+            json.dump(info, fp)
 
         return fn
 
-    @staticmethod
-    def load(sbt_fn, leaf_loader=None):
+    @classmethod
+    def load(cls, sbt_fn, leaf_loader=None):
         if leaf_loader is None:
             leaf_loader = Leaf.load
 
         with open(sbt_fn) as fp:
-            nodes = json.load(fp)
+            info = json.load(fp)
+
+        nodes = {int(k): v for (k, v) in info['nodes'].items()}
 
         if nodes[0] is None:
-            # TODO error!
             raise ValueError("Empty tree!")
 
         sbt_nodes = []
 
+        # TODO if there is only one Leaf (the root),
+        # how do we initialize the factory?
+        # Probably better to save this in the json
         k, size, ntables, *_ = extract_nodegraph_info(nodes[0]['filename'])
         factory = GraphFactory(k, size, ntables)
 
-        for node in nodes:
+        for i, node in sorted(nodes.items()):
             if node is None:
                 sbt_nodes.append(None)
                 continue
@@ -214,7 +222,7 @@ class SBT(object):
 
             sbt_nodes.append(new_node)
 
-        tree = SBT(factory)
+        tree = cls(factory, d=info['d'])
         tree.nodes = sbt_nodes
 
         return tree
@@ -266,8 +274,10 @@ class DictSBT(SBT):
         self.nodes = defaultdict(lambda: None)
 
     def new_node_pos(self, node):
-        pos = max(self.nodes or [0])
-        return pos
+        if self.nodes:
+            return max(self.nodes) + 1
+        else:
+            return 0
 
     def __iter__(self):
         for i, node in self.nodes.items():

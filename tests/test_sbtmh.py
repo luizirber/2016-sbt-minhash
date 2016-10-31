@@ -26,14 +26,14 @@ def test_tree_save_load(SBTImplementation):
 
     tree.save('urchin')
 
-    tree = SBTImplementation.load('urchin.sbt.json', leaf_loader=SigLeaf.load)
+    tree2 = SBTImplementation.load('urchin.sbt.json', leaf_loader=SigLeaf.load)
 
     print('*' * 60)
     print("{}:".format(to_search.metadata))
-    new_result = [str(s) for s in tree.find(search_minhashes, to_search.data, 0.1)]
+    new_result = [str(s) for s in tree2.find(search_minhashes, to_search.data, 0.1)]
     print(*new_result, sep='\n')
 
-    assert old_result == new_result
+    assert set(old_result) == set(new_result)
     assert len(old_result) > 0
 
 
