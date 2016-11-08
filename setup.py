@@ -25,7 +25,7 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python :: 3.5',
     ],
-    #packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-    py_modules=["sbt", "sbtmh"],
+    packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+    py_modules=["sbt"],
     install_requires=['khmer', 'sourmash', 'numpy'],
 )
